@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Straight Line Equation Practice</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+        }
+        .container-card {
+            box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .svg-container {
+            border: 1px solid #e0e0e0;
+            background-color: #ffffff;
+            /* Ensure the SVG scales responsively */
+            width: 100%;
+            height: auto;
+            max-width: 480px;
+        }
+        /* Custom button styling for choices */
+        .choice-btn {
+            @apply w-full py-3 px-4 text-gray-700 bg-gray-50 border-2 border-gray-200 rounded-lg font-semibold hover:bg-blue-100 transition duration-150 text-center cursor-pointer;
+        }
+        .choice-btn.selected {
+            background-color: #3b82f6; /* bg-blue-500 */
+            color: white;
+            border-color: #3b82f6; /* border-blue-500 */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        /* Style for the check button */
+        #check-btn {
+            box-shadow: 0 4px 0 0 #059669; /* Darker green shadow */
+            transition: all 0.1s ease;
+        }
+        #check-btn:active:not(:disabled) {
+            box-shadow: none;
+            transform: translateY(4px);
+        }
+        #check-btn:disabled {
+            @apply bg-gray-400 cursor-not-allowed shadow-none;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 flex items-center justify-center min-h-screen">
+    <div class="w-full max-w-4xl container-card bg-white rounded-xl overflow-hidden p-6 md:p-8">
+        
+        <!-- Game Status Header -->
+        <div class="flex justify-between items-center mb-6 border-b pb-4">
+            <h1 class="text-3xl font-bold text-gray-800">Line Equation Finder Quiz</h1>
+            <div class="flex items-center space-x-6">
+                <!-- Life Counter -->
+                <div class="flex items-center space-x-2 text-xl font-bold text-red-500">
+                    <span class="text-gray-600 font-normal text-base">Lives:</span>
+                    <span id="lives-display" class="space-x-1">
+                        <!-- Hearts will be rendered here -->
+                    </span>
+                </div>
+                <!-- Score Tracker -->
+                <div class="flex items-center space-x-1 text-xl font-bold text-green-600">
+                    <span class="text-gray-600 font-normal text-base">Score:</span>
+                    <span id="score-display">0 / 5</span>
+                </div>
+            </div>
+        </div>
+
+        <p class="text-gray-600 mb-6">Given the two points, find the equation of the straight line $L$ in the form $y = mx + c$.</p>
+
+        <div class="flex flex-col lg:flex-row gap-8">
+            <!-- Graph Area -->
+            <div class="lg:w-1/2 flex flex-col items-center">
+                <div id="svg-graph" class="svg-container rounded-lg">
+                    <!-- SVG will be generated here -->
+                </div>
+                <p id="point-display" class="mt-4 text-lg font-semibold text-gray-700"></p>
+            </div>
+
+            <!-- Input and Feedback Area -->
+            <div class="lg:w-1/2">
+                
+                <!-- Slope Choices -->
+                <div class="p-4 bg-indigo-50 rounded-lg mb-6">
+                    <p class="text-lg font-semibold text-indigo-800 mb-3">1. Select the Slope ($m$):</p>
+                    <div id="slope-choices" class="grid grid-cols-2 gap-3">
+                        <!-- Slope buttons go here -->
+                    </div>
+                </div>
+                
+                <!-- Y-intercept Choices -->
+                <div class="p-4 bg-purple-50 rounded-lg mb-6">
+                    <p class="text-lg font-semibold text-purple-800 mb-3">2. Select the Y-intercept ($c$):</p>
+                    <div id="intercept-choices" class="grid grid-cols-2 gap-3">
+                        <!-- Intercept buttons go here -->
+                    </div>
+                </div>
+
+                <!-- Control Buttons Area (Updated with Restart) -->
+                <div class="flex space-x-3 mb-6">
+                    <button id="restart-btn" onclick="app.resetGame()" class="flex-1 py-3 px-4 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-700 transition duration-200">
+                        Restart Game
+                    </button>
+                    <button id="check-btn" onclick="app.checkAnswer()" class="flex-1 py-3 px-4 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition duration-200">
+                        Check Answer
+                    </button>
+                    <button id="new-problem-btn" onclick="app.startNewProblem()" class="flex-1 py-3 px-4 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition duration-200">
+                        New Problem
+                    </button>
+                </div>
+
+                <!-- Feedback Area -->
+                <div id="feedback" class="min-h-16 p-4 rounded-lg text-center font-medium bg-gray-100 text-gray-700">
+                    Select your choices for $m$ and $c$, then click "Check Answer".
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const app = {
+            // Internal State
+            points: {}, 
+            correctM: null,
+            correctC: null,
+            selectedM: null,
+            selectedC: null,
+            lives: 3, 
+            score: 0,
+            TARGET_SCORE: 5,
+
+            // SVG Constants
+            SVG_SIZE: 480,
+            MATH_MAX_COORD: 10,
+            MARGIN: 40, 
+            SCALE: 0, 
+            
+            // Tolerance for floating point comparison
+            TOLERANCE: 0.0001, 
+
+            // Utility to map math coordinates to SVG coordinates
+            toSVG: function(x, y) {
+                const svgX = this.MARGIN + x * this.SCALE;
+                const svgY = this.SVG_SIZE - this.MARGIN - y * this.SCALE; 
+                return { x: svgX, y: svgY };
+            },
+
+            // Utility to generate a random integer
+            randomInt: function(min, max) {
+                return Math.floor(Math.random() * (max - min + 1)) + min;
+            },
+            
+            // Formats a number for display (keeps simple fractions as decimals)
+            formatNumber: function(n) {
+                // Check if it's an integer or has one decimal place
+                if (Number.isInteger(n) || (Math.round(n * 10) / 10 === n)) {
+                    return n.toString();
+                }
+                // Return up to two decimal places
+                return n.toFixed(2);
+            },
+
+            // Generates three plausible but incorrect choices (distractors)
+            generateDistractors: function(correctValue, isSlope, x1, y1, x2, y2) {
+                const distractors = new Set();
+                const cv = parseFloat(correctValue); 
+
+                if (isSlope) {
+                    // Common Slope Errors: Reciprocal, Sign, and small delta
+                    const runOverRise = (x2 - x1) / (y2 - y1);
+                    if (Math.abs(runOverRise) > this.TOLERANCE && Math.abs(runOverRise - cv) > this.TOLERANCE) distractors.add(this.formatNumber(runOverRise));
+
+                    const signError = -cv;
+                    if (Math.abs(signError - cv) > this.TOLERANCE) distractors.add(this.formatNumber(signError));
+                    
+                    distractors.add(this.formatNumber(cv + 0.5));
+                    distractors.add(this.formatNumber(cv - 0.5));
+
+                } else {
+                    // Common Intercept Errors: Using y-coords, addition error, and simple delta
+                    distractors.add(this.formatNumber(y1));
+                    distractors.add(this.formatNumber(y2));
+                    
+                    const additionError = y1 + cv * x1;
+                    if (Math.abs(additionError - cv) > this.TOLERANCE) distractors.add(this.formatNumber(additionError));
+
+                    distractors.add(this.formatNumber(cv + 1));
+                    distractors.add(this.formatNumber(cv - 1));
+                }
+
+                // Filter out the correct answer and ensure we only have three unique distractors
+                let finalDistractors = Array.from(distractors)
+                    .map(parseFloat)
+                    .filter(d => Math.abs(d - cv) > this.TOLERANCE);
+                
+                return finalDistractors.slice(0, 3).map(n => this.formatNumber(n));
+            },
+
+
+            // Generates two random points and calculates the correct m and c
+            startNewProblem: function() {
+                let x1, y1, x2, y2;
+                const minCoord = 1;
+                const maxCoord = this.MATH_MAX_COORD - 1; 
+
+                // Loop until we find points that don't result in m=0 or x1=x2
+                do {
+                    x1 = this.randomInt(minCoord, maxCoord);
+                    y1 = this.randomInt(minCoord, maxCoord);
+                    x2 = this.randomInt(minCoord, maxCoord);
+                    y2 = this.randomInt(minCoord, maxCoord);
+                } while (x1 === x2 || y1 === y2);
+
+                this.points = { x1, y1, x2, y2 };
+                document.getElementById('point-display').textContent = 
+                    `The line L passes through A(${x1}, ${y1}) and B(${x2}, ${y2}).`;
+
+                // Calculate the slope (m) and y-intercept (c)
+                const m = (y2 - y1) / (x2 - x1);
+                const c = y1 - m * x1;
+                
+                this.correctM = m; 
+                this.correctC = c; 
+
+                const correctM_formatted = this.formatNumber(m);
+                const correctC_formatted = this.formatNumber(c);
+
+                // Generate choices
+                const m_distractors = this.generateDistractors(m, true, x1, y1, x2, y2);
+                const c_distractors = this.generateDistractors(c, false, x1, y1, x2, y2);
+                
+                let m_choices = [correctM_formatted, ...m_distractors];
+                let c_choices = [correctC_formatted, ...c_distractors];
+                
+                // Shuffle and render choices
+                m_choices.sort(() => Math.random() - 0.5);
+                c_choices.sort(() => Math.random() - 0.5);
+
+                this.renderChoices(m_choices, 'slope-choices', 'm');
+                this.renderChoices(c_choices, 'intercept-choices', 'c');
+
+                // Reset selection state
+                this.selectedM = null;
+                this.selectedC = null;
+                
+                // Re-enable check button if it was disabled
+                document.getElementById('check-btn').disabled = false;
+
+                this.updateFeedback('Select your choices for $m$ and $c$, then click "Check Answer".', 'bg-gray-100 text-gray-700');
+                
+                this.renderSVG();
+                this.updateGameStatus();
+            },
+
+            // Resets the game state (lives, score) and starts a new problem
+            resetGame: function() {
+                this.lives = 3;
+                this.score = 0;
+                document.getElementById('check-btn').disabled = false;
+                this.startNewProblem();
+                this.updateFeedback('Game restarted! Find the equation for the new line.', 'bg-blue-100 text-blue-800');
+            },
+
+            // Updates the lives and score display
+            updateGameStatus: function() {
+                // Update Score Display
+                document.getElementById('score-display').textContent = `${this.score} / ${this.TARGET_SCORE}`;
+
+                // Update Lives Display (Hearts)
+                const livesDisplay = document.getElementById('lives-display');
+                livesDisplay.innerHTML = '';
+                for (let i = 0; i < 3; i++) {
+                    const heart = document.createElement('span');
+                    heart.className = i < this.lives 
+                        ? 'text-red-500 transition-transform duration-200 inline-block transform hover:scale-110' 
+                        : 'text-gray-300';
+                    heart.innerHTML = '&#x2764;'; // Unicode heart symbol
+                    livesDisplay.appendChild(heart);
+                }
+
+                // Check for Win/Lose conditions
+                if (this.score >= this.TARGET_SCORE) {
+                    this.updateFeedback(`🏆 CONGRATULATIONS! You solved ${this.TARGET_SCORE} equations! Click "New Problem" to continue practicing or "Restart Game" to reset score.`, 'bg-yellow-200 text-green-800 font-extrabold');
+                    document.getElementById('check-btn').disabled = true;
+                } else if (this.lives <= 0) {
+                    this.updateFeedback(`💔 GAME OVER! You ran out of lives. Click "Restart Game" to try again.`, 'bg-red-500 text-white font-extrabold');
+                    document.getElementById('check-btn').disabled = true;
+                }
+            },
+            
+            // Renders the multiple-choice buttons
+            renderChoices: function(choices, containerId, type) {
+                const container = document.getElementById(containerId);
+                container.innerHTML = '';
+                
+                choices.forEach(choiceValue => {
+                    const btn = document.createElement('button');
+                    btn.className = 'choice-btn';
+                    btn.textContent = choiceValue;
+                    btn.setAttribute('data-value', choiceValue);
+                    btn.onclick = () => this.selectChoice(btn, type, parseFloat(choiceValue)); 
+                    container.appendChild(btn);
+                });
+            },
+
+            // Handles selection of a choice button
+            selectChoice: function(selectedBtn, type, value) {
+                if (document.getElementById('check-btn').disabled) return; // Ignore clicks if game is over
+                
+                const container = selectedBtn.parentElement;
+                const allButtons = container.querySelectorAll('.choice-btn');
+
+                allButtons.forEach(btn => {
+                    btn.classList.remove('selected');
+                });
+
+                selectedBtn.classList.add('selected');
+
+                if (type === 'm') {
+                    this.selectedM = value;
+                } else if (type === 'c') {
+                    this.selectedC = value;
+                }
+            },
+
+            // Draws the graph based on the current points
+            renderSVG: function() {
+                const container = document.getElementById('svg-graph');
+                const { x1, y1, x2, y2 } = this.points;
+                const { SVG_SIZE, MATH_MAX_COORD, MARGIN } = this;
+                
+                let svgContent = `<svg width="100%" height="${SVG_SIZE}" viewBox="0 0 ${SVG_SIZE} ${SVG_SIZE}" xmlns="http://www.w3.org/2000/svg">`;
+
+                // --- 2. Axes (Blue lines) ---
+                svgContent += '<g stroke="#3b82f6" stroke-width="2" fill="none">';
+                
+                // X-axis (from 0 to MATH_MAX_COORD)
+                const xOriginY = SVG_SIZE - MARGIN;
+                svgContent += `<line x1="${MARGIN}" y1="${xOriginY}" x2="${SVG_SIZE - MARGIN + 10}" y2="${xOriginY}" />`;
+                // Y-axis
+                const yOriginX = MARGIN;
+                svgContent += `<line x1="${yOriginX}" y1="${SVG_SIZE - MARGIN}" x2="${yOriginX}" y2="${MARGIN - 10}" />`;
+                
+                // Axis labels (x and y)
+                svgContent += `<text x="${SVG_SIZE - MARGIN + 20}" y="${xOriginY + 5}" font-size="16" alignment-baseline="middle" text-anchor="middle" font-weight="bold" fill="#3b82f6">x</text>`;
+                svgContent += `<text x="${yOriginX - 5}" y="${MARGIN - 20}" font-size="16" alignment-baseline="middle" text-anchor="middle" font-weight="bold" fill="#3b82f6">y</text>`;
+
+                // Origin 'O'
+                svgContent += `<text x="${yOriginX - 10}" y="${xOriginY + 10}" font-size="14" font-weight="bold" fill="#333">O</text>`;
+                
+                svgContent += '</g>';
+                
+                // --- 3. Straight Line L (Black) ---
+                const m = this.correctM;
+                const c = this.correctC;
+
+                const lineX1 = 0;
+                const lineY1 = m * lineX1 + c; 
+                
+                const lineX2 = MATH_MAX_COORD;
+                const lineY2 = m * lineX2 + c;
+                
+                const svgLineStart = this.toSVG(lineX1, lineY1);
+                const svgLineEnd = this.toSVG(lineX2, lineY2);
+
+                svgContent += `<line x1="${svgLineStart.x}" y1="${svgLineStart.y}" x2="${svgLineEnd.x}" y2="${svgLineEnd.y}" stroke="#000" stroke-width="3" stroke-linecap="round" id="line-L"/>`;
+
+                // Label L on the line (near the top right end)
+                svgContent += `<text x="${svgLineEnd.x - 20}" y="${svgLineEnd.y - 10}" font-size="16" font-weight="bold" fill="#000">L</text>`;
+
+
+                // --- 4. Points A and B (Red dots and labels) ---
+                const svgA = this.toSVG(x1, y1);
+                const svgB = this.toSVG(x2, y2);
+
+                // Point A
+                svgContent += `<circle cx="${svgA.x}" cy="${svgA.y}" r="6" fill="#ef4444" stroke="#fff" stroke-width="2" />`;
+                svgContent += `<text x="${svgA.x + 10}" y="${svgA.y - 10}" font-size="16" font-weight="bold" fill="#ef4444">A</text>`;
+                
+                // Point B
+                svgContent += `<circle cx="${svgB.x}" cy="${svgB.y}" r="6" fill="#ef4444" stroke="#fff" stroke-width="2" />`;
+                svgContent += `<text x="${svgB.x + 10}" y="${svgB.y - 10}" font-size="16" font-weight="bold" fill="#ef4444">B</text>`;
+
+
+                // --- End SVG ---
+                svgContent += '</svg>';
+                container.innerHTML = svgContent;
+            },
+
+            // Checks the user's selected answers
+            checkAnswer: function() {
+                if (this.lives <= 0 || this.score >= this.TARGET_SCORE) {
+                    this.updateFeedback('The game is over. Click "Restart Game" to try again.', 'bg-gray-400 text-white');
+                    return;
+                }
+                
+                if (this.selectedM === null || this.selectedC === null) {
+                    this.updateFeedback('🛑 Please select a choice for BOTH Slope ($m$) and Y-intercept ($c$).', 'bg-yellow-100 text-yellow-800');
+                    return;
+                }
+
+                const isMCorrect = Math.abs(this.selectedM - this.correctM) < this.TOLERANCE;
+                const isCCorrect = Math.abs(this.selectedC - this.correctC) < this.TOLERANCE;
+                
+                const correctM_display = this.formatNumber(this.correctM);
+                const correctC_display = this.formatNumber(this.correctC);
+                const sign = this.correctC >= 0 ? '+' : '-';
+
+                const lineL = document.getElementById('line-L');
+
+                if (isMCorrect && isCCorrect) {
+                    // Correct Answer Logic
+                    const message = `🎉 Correct! The equation is $y = ${correctM_display}x ${sign} ${Math.abs(correctC_display)}$.`;
+                    this.updateFeedback(message, 'bg-green-100 text-green-800');
+                    
+                    this.score++; // Increment score
+                    this.updateGameStatus();
+                    
+                    if (lineL) {
+                        lineL.style.stroke = '#10b981'; // Green confirmation
+                        document.getElementById('check-btn').disabled = true; // Force user to get new problem
+                    }
+
+                } else {
+                    // Incorrect Answer Logic
+                    this.lives--; // Decrement lives
+                    this.updateGameStatus();
+
+                    let message = '❌ Incorrect attempt. ';
+                    
+                    if (!isMCorrect) {
+                        message += `Slope ($m$) is incorrect. `;
+                    }
+                    if (!isCCorrect) {
+                        message += `Y-intercept ($c$) is incorrect.`;
+                    }
+                    message += ` You have ${this.lives} lives remaining.`;
+                    
+                    this.updateFeedback(message, 'bg-red-100 text-red-800');
+                    
+                    if (lineL) {
+                        lineL.style.stroke = '#ef4444'; // Red error
+                        setTimeout(() => lineL.style.stroke = '#000', 500); // Reset color
+                    }
+                }
+            },
+
+            // Updates the feedback box content and style
+            updateFeedback: function(message, className) {
+                const feedbackDiv = document.getElementById('feedback');
+                feedbackDiv.innerHTML = message;
+                feedbackDiv.className = `min-h-16 p-4 rounded-lg text-center font-medium ${className || 'bg-gray-100 text-gray-700'}`;
+            },
+
+            // Initialization (called only once on load)
+            init: function() {
+                // Calculate the scale factor based on the defined sizes
+                this.SCALE = (this.SVG_SIZE - 2 * this.MARGIN) / this.MATH_MAX_COORD;
+                
+                // Initial game setup (calls resetGame)
+                this.resetGame();
+            }
+        };
+
+        // Initialize the application when the DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            app.init();
+        });
+    </script>
+</body>
+</html>
